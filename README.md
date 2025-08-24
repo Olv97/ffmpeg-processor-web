@@ -125,8 +125,6 @@ docker run -p 8080:8080 ffmpeg-processor-web
 
 如有问题或建议，请通过以下方式联系：
 - 提交Issue
-- 发送邮件至：[your-email@example.com]
-
 ---
 
 **注意**: 使用前请确保已正确配置阿里云相关服务的访问权限和参数。
