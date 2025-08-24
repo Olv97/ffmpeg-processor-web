@@ -1,0 +1,1152 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FFmpeg音视频处理平台</title>
+    <!-- 引入Bootstrap 4.6.1 CSS -->
+    <link href="https://cdn.bootcdn.net/ajax/libs/twitter-bootstrap/4.6.1/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.bootcdn.net/ajax/libs/font-awesome/5.15.4/css/all.min.css" rel="stylesheet">
+    <link href="https://cdn.bootcdn.net/ajax/libs/jquery-toast-plugin/1.3.2/jquery.toast.min.css" rel="stylesheet">
+    <link href="/ffmpeg-processor/css/upload.css" rel="stylesheet">
+    <style>
+        .function-card {
+            transition: transform 0.3s;
+            margin-bottom: 20px;
+            height: 100%;
+        }
+        .function-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+        }
+        .card-header {
+            background-color: #f8f9fa;
+            font-weight: bold;
+        }
+        .btn-primary {
+            background-color: #1e88e5;
+        }
+        .icon-container {
+            font-size: 2rem;
+            margin-bottom: 15px;
+            color: #1e88e5;
+        }
+        .main-container {
+            padding: 30px 0;
+        }
+        /* 确保模态框初始状态隐藏 */
+        .modal {
+            display: none;
+        }
+        .modal-backdrop {
+            z-index: 1040;
+        }
+    </style>
+</head>
+<body>
+    <!-- 导航栏 -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+        <div class="container">
+            <a class="navbar-brand" href="#">
+                <i class="fas fa-film me-2"></i>FFmpeg音视频处理平台
+            </a>
+            <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav ml-auto">
+                    <li class="nav-item">
+                        <a class="nav-link active" href="#">首页</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="#about">关于</a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <!-- 主要内容 -->
+    <div class="container main-container">
+        <!-- 标题 -->
+        <div class="row mb-4">
+            <div class="col-12 text-center">
+                <h1>基于阿里云函数计算的音视频处理服务</h1>
+                <p class="lead">高效、可靠、灵活的音视频处理解决方案</p>
+            </div>
+        </div>
+        
+        <!-- 文件上传区域 -->
+        <div class="upload-container p-4 mb-5">
+            <h3 class="mb-4">媒体文件上传处理</h3>
+            
+            <!-- 初始上传区域 -->
+            <div id="uploadInitialArea">
+                <div id="dropzone" class="dropzone-area">
+                    <input type="file" id="fileInput" style="display: none;" accept="video/*,audio/*">
+                    <div class="text-center">
+                        <i class="fas fa-cloud-upload-alt fa-4x text-primary mb-3"></i>
+                        <h5 class="mb-3">将文件拖放到此处，或</h5>
+                        <button type="button" id="selectFileButton" class="btn btn-primary upload-btn">选择文件</button>
+                    </div>
+                </div>
+                
+                <div id="uploadProgress" class="d-none mt-3">
+                    <div class="progress">
+                        <div class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" style="width: 0%" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"></div>
+                    </div>
+                    <p class="text-center mt-2">上传中，请稍候...</p>
+                </div>
+            </div>
+            
+            <!-- 文件处理区域（上传后显示） -->
+            <div id="fileProcessArea" class="d-none">
+                <div class="row">
+                    <!-- 已上传文件列表 -->
+                    <div class="col-md-4">
+                        <div class="card h-100">
+                            <div class="card-header d-flex justify-content-between align-items-center">
+                                <h5 class="mb-0">已上传文件</h5>
+                                <button id="addMoreFileBtn" class="btn btn-sm btn-primary">添加文件</button>
+                            </div>
+                            <div class="card-body p-2">
+                                <div id="fileList" class="file-list-container">
+                                    <!-- 文件列表动态生成 -->
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 功能选择区域 -->
+                    <div class="col-md-8">
+                        <div class="card">
+                            <div class="card-header">
+                                <h5 class="mb-0">选择处理功能</h5>
+                            </div>
+                            <div class="card-body">
+                                <div class="row">
+                                    <!-- 获取媒体元信息 -->
+                                    <div class="col-md-6 mb-3">
+                                        <div class="card h-100">
+                                            <div class="card-body text-center">
+                                                <i class="fas fa-info-circle fa-2x text-primary mb-3"></i>
+                                                <h5>获取媒体元信息</h5>
+                                                <p class="small text-muted">获取音视频文件的完整元数据信息</p>
+                                                <button class="btn btn-primary function-btn" data-function="metadata">执行</button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- 获取媒体时长 -->
+                                    <div class="col-md-6 mb-3">
+                                        <div class="card h-100">
+                                            <div class="card-body text-center">
+                                                <i class="fas fa-clock fa-2x text-primary mb-3"></i>
+                                                <h5>获取媒体时长</h5>
+                                                <p class="small text-muted">快速获取音视频文件的播放时长</p>
+                                                <button class="btn btn-primary function-btn" data-function="duration">执行</button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- 雪碧图生成 -->
+                                    <div class="col-md-6 mb-3">
+                                        <div class="card h-100">
+                                            <div class="card-body text-center">
+                                                <i class="fas fa-th fa-2x text-primary mb-3"></i>
+                                                <h5>雪碧图生成</h5>
+                                                <p class="small text-muted">从视频中生成多帧画面组成的雪碧图</p>
+                                                <button class="btn btn-primary function-btn" data-function="sprites">执行</button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- 视频水印 -->
+                                    <div class="col-md-6 mb-3">
+                                        <div class="card h-100">
+                                            <div class="card-body text-center">
+                                                <i class="fas fa-stamp fa-2x text-primary mb-3"></i>
+                                                <h5>视频水印</h5>
+                                                <p class="small text-muted">为视频添加文字或图片水印</p>
+                                                <button class="btn btn-primary function-btn" data-function="watermark">执行</button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 结果展示区域 -->
+        <div id="resultArea" class="d-none">
+            <!-- 处理结果将在这里动态显示 -->
+        </div>
+        
+        <!-- 原有功能卡片 - 已被上面的功能卡片替代，但保留在此作为参考 -->
+        <div class="row d-none">
+            <!-- 获取媒体元信息 -->
+            <div class="col-md-4">
+                <div class="card function-card">
+                    <div class="card-header">
+                        获取媒体元信息
+                    </div>
+                    <div class="card-body text-center">
+                        <div class="icon-container">
+                            <i class="fas fa-info-circle"></i>
+                        </div>
+                        <p class="card-text">以JSON格式获取音视频文件的完整元数据信息</p>
+                        <button type="button" class="btn btn-primary" data-toggle="modal" data-target="#mediaMetaModal">开始使用</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 获取媒体时长 -->
+            <div class="col-md-4">
+                <div class="card function-card">
+                    <div class="card-header">
+                        获取媒体时长
+                    </div>
+                    <div class="card-body text-center">
+                        <div class="icon-container">
+                            <i class="fas fa-clock"></i>
+                        </div>
+                        <p class="card-text">快速获取音视频文件的播放时长</p>
+                        <button type="button" class="btn btn-primary" data-toggle="modal" data-target="#durationModal">开始使用</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 雪碧图生成 -->
+            <div class="col-md-4">
+                <div class="card function-card">
+                    <div class="card-header">
+                        雪碧图生成
+                    </div>
+                    <div class="card-body text-center">
+                        <div class="icon-container">
+                            <i class="fas fa-th"></i>
+                        </div>
+                        <p class="card-text">从视频中生成多帧画面组成的雪碧图</p>
+                        <button type="button" class="btn btn-primary" data-toggle="modal" data-target="#spritesModal">开始使用</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 视频水印 -->
+            <div class="col-md-4 mt-4">
+                <div class="card function-card">
+                    <div class="card-header">
+                        视频水印
+                    </div>
+                    <div class="card-body text-center">
+                        <div class="icon-container">
+                            <i class="fas fa-stamp"></i>
+                        </div>
+                        <p class="card-text">为视频添加文字、静态图片或动态GIF水印</p>
+                        <button type="button" class="btn btn-primary" data-toggle="modal" data-target="#watermarkModal">开始使用</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 视频转GIF -->
+            <div class="col-md-4 mt-4">
+                <div class="card function-card">
+                    <div class="card-header">
+                        视频转GIF
+                    </div>
+                    <div class="card-body text-center">
+                        <div class="icon-container">
+                            <i class="fas fa-image"></i>
+                        </div>
+                        <p class="card-text">将视频片段转换为GIF动图格式</p>
+                        <button type="button" class="btn btn-primary" data-toggle="modal" data-target="#gifModal">开始使用</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 音频转换 -->
+            <div class="col-md-4 mt-4">
+                <div class="card function-card">
+                    <div class="card-header">
+                        音频转换
+                    </div>
+                    <div class="card-body text-center">
+                        <div class="icon-container">
+                            <i class="fas fa-music"></i>
+                        </div>
+                        <p class="card-text">音频格式转换，支持修改声道和采样率</p>
+                        <button type="button" class="btn btn-primary" data-toggle="modal" data-target="#audioModal">开始使用</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 页脚 -->
+    <footer class="bg-dark text-white py-4 mt-5">
+        <div class="container text-center">
+            <p>© 2025 FFmpeg音视频处理平台 | 基于阿里云函数计算服务</p>
+        </div>
+    </footer>
+
+    <!-- 获取媒体元信息模态框 -->
+    <div class="modal fade" id="mediaMetaModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">获取媒体元信息</h5>
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+                </div>
+                <div class="modal-body">
+                    <form id="mediaMetaForm">
+                        <div class="mb-3">
+                            <label for="bucketName" class="form-label">存储桶名称</label>
+                            <input type="text" class="form-control" id="metaBucketName" placeholder="请输入OSS存储桶名称">
+                        </div>
+                        <div class="mb-3">
+                            <label for="objectKey" class="form-label">文件对象键</label>
+                            <input type="text" class="form-control" id="metaObjectKey" placeholder="请输入OSS对象键">
+                        </div>
+                        <button type="button" id="getMediaMetaButton" class="btn btn-primary mt-3">获取元信息</button>
+                    </form>
+                    
+                    <div id="mediaMetaResultContainer" class="mt-4 d-none">
+                        <h5 class="mb-3">媒体元数据</h5>
+                        
+                        <!-- 基本信息表格 -->
+                        <h6 class="mt-4">基本信息</h6>
+                        <table class="table table-bordered table-striped">
+                            <tbody>
+                                <tr>
+                                    <th style="width: 30%">文件名称</th>
+                                    <td id="meta_fileName">-</td>
+                                </tr>
+                                <tr>
+                                    <th>格式</th>
+                                    <td id="meta_format">-</td>
+                                </tr>
+                                <tr>
+                                    <th>时长</th>
+                                    <td id="meta_duration">-</td>
+                                </tr>
+                                <tr>
+                                    <th>文件大小</th>
+                                    <td id="meta_size">-</td>
+                                </tr>
+                                <tr>
+                                    <th>总比特率</th>
+                                    <td id="meta_bitRate">-</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                        
+                        <!-- 视频流信息表格 -->
+                        <h6 class="mt-4">视频流信息</h6>
+                        <div id="videoStreamsContainer">
+                            <div class="alert alert-info">无视频流信息</div>
+                        </div>
+                        
+                        <!-- 音频流信息表格 -->
+                        <h6 class="mt-4">音频流信息</h6>
+                        <div id="audioStreamsContainer">
+                            <div class="alert alert-info">无音频流信息</div>
+                        </div>
+                        
+                        <!-- 标签信息表格 -->
+                        <h6 class="mt-4">标签信息</h6>
+                        <div id="tagsContainer">
+                            <div class="alert alert-info">无标签信息</div>
+                        </div>
+                    </div>
+                    
+                    <div id="mediaMetaLoading" class="text-center mt-4 d-none">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="sr-only">加载中...</span>
+                        </div>
+                        <p class="mt-2">正在获取媒体元数据，请稍候...</p>
+                    </div>
+                    
+                    <div id="mediaMetaError" class="alert alert-danger mt-4 d-none">
+                        <strong>错误：</strong> <span id="mediaMetaErrorText"></span>
+                    </div>                    
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 获取媒体时长模态框 - 已优化 -->
+    <div class="modal fade" id="durationModal" tabindex="-1" role="dialog" aria-labelledby="durationModalLabel" aria-hidden="true">
+        <div class="modal-dialog" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="durationModalLabel">获取媒体时长</h5>
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                        <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label for="durationBucketName">存储桶名称</label>
+                        <input type="text" class="form-control" id="durationBucketName" placeholder="请输入OSS存储桶名称">
+                    </div>
+                    <div class="form-group">
+                        <label for="durationObjectKey">文件对象键</label>
+                        <input type="text" class="form-control" id="durationObjectKey" placeholder="请输入OSS对象键，如video/example.mp4">
+                    </div>
+                    <div class="form-group mt-4">
+                        <button id="getDurationButton" class="btn btn-primary">获取时长</button>
+                    </div>
+                    <div class="mt-3">
+                        <p>处理结果：</p>
+                        <div id="durationLoading" class="d-none">
+                            <div class="text-center">
+                                <div class="spinner-border text-primary" role="status">
+                                    <span class="sr-only">加载中...</span>
+                                </div>
+                                <p>正在获取时长信息...</p>
+                            </div>
+                        </div>
+                        <div id="durationError" class="d-none">
+                            <div class="alert alert-danger">
+                                <i class="fas fa-exclamation-circle mr-2"></i>
+                                <span id="durationErrorText"></span>
+                            </div>
+                        </div>
+                        <div id="durationResultContainer" class="d-none">
+                            <table class="table table-bordered">
+                                <thead class="thead-light">
+                                    <tr>
+                                        <th colspan="2" class="text-center">媒体时长信息</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <th style="width: 30%">精确时长（秒）</th>
+                                        <td id="duration_seconds">-</td>
+                                    </tr>
+                                    <tr>
+                                        <th>格式化时长</th>
+                                        <td id="duration_formatted">-</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-dismiss="modal">关闭</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 雪碧图生成模态框 -->
+    <div class="modal fade" id="spritesModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">雪碧图生成</h5>
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+                </div>
+                <div class="modal-body">
+                    <form id="spritesForm">
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="spritesBucketName" class="form-label">存储桶名称 <span class="text-danger">*</span></label>
+                                <input type="text" class="form-control" id="spritesBucketName" name="bucket_name" placeholder="请输入OSS存储桶名称" required>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="spritesObjectKey" class="form-label">文件对象键 <span class="text-danger">*</span></label>
+                                <input type="text" class="form-control" id="spritesObjectKey" name="object_key" placeholder="请输入OSS对象键" required>
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="spritesOutputDir" class="form-label">输出目录 <span class="text-danger">*</span></label>
+                                <input type="text" class="form-control" id="spritesOutputDir" name="output_dir" value="sprites/" required>
+                                <small class="text-muted">雪碧图将保存到此OSS路径</small>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="spritesTile" class="form-label">雪碧图布局 <span class="text-danger">*</span></label>
+                                <input type="text" class="form-control" id="spritesTile" name="tile" value="3*4" placeholder="例如：3*4" required>
+                                <small class="text-muted">格式为：行数*列数</small>
+                            </div>
+                        </div>
+                        <hr>
+                        <h6>高级选项</h6>
+                        <div class="row">
+                            <div class="col-md-4 mb-3">
+                                <label for="spritesStart" class="form-label">开始时间（秒）</label>
+                                <input type="number" class="form-control" id="spritesStart" name="start" value="0" min="0">
+                                <small class="text-muted">从视频的哪一秒开始截图</small>
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <label for="spritesDuration" class="form-label">持续时间（秒）</label>
+                                <input type="number" class="form-control" id="spritesDuration" name="duration" value="" min="1" placeholder="可选">
+                                <small class="text-muted">截取多长时间的视频</small>
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <label for="spritesInterval" class="form-label">截图间隔（秒）</label>
+                                <input type="number" class="form-control" id="spritesInterval" name="interval" value="5" min="1">
+                                <small class="text-muted">每隔多少秒截一帧</small>
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-4 mb-3">
+                                <label for="spritesItsoffset" class="form-label">时间偏移（秒）</label>
+                                <input type="number" class="form-control" id="spritesItsoffset" name="itsoffset" value="0">
+                                <small class="text-muted">调整截图时间点</small>
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <label for="spritesScale" class="form-label">图片缩放</label>
+                                <input type="text" class="form-control" id="spritesScale" name="scale" placeholder="例如：320:240" value="-1:-1">
+                                <small class="text-muted">宽:高，-1为保持比例</small>
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <label for="spritesPadding" class="form-label">图片间距</label>
+                                <input type="number" class="form-control" id="spritesPadding" name="padding" value="1" min="0">
+                                <small class="text-muted">缩略图之间的像素间距</small>
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="spritesColor" class="form-label">背景颜色</label>
+                                <input type="text" class="form-control" id="spritesColor" name="color" value="black">
+                                <small class="text-muted">雪碧图的背景色</small>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="spritesDstType" class="form-label">输出格式</label>
+                                <select class="form-control" id="spritesDstType" name="dst_type">
+                                    <option value="jpg" selected>JPG</option>
+                                    <option value="png">PNG</option>
+                                </select>
+                                <small class="text-muted">雪碧图的输出格式</small>
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <button type="button" class="btn btn-primary w-100" id="getSpritesButton">生成雪碧图</button>
+                        </div>
+                    </form>
+                    <div class="mt-4">
+                        <h6>处理结果：</h6>
+                        <div class="border p-3 bg-light">
+                            <pre id="spritesResult" style="white-space: pre-wrap;">结果将显示在这里...</pre>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 视频水印模态框 -->
+    <div class="modal fade" id="watermarkModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">视频添加水印</h5>
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+                </div>
+                <div class="modal-body">
+                    <form id="watermarkForm">
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="watermarkBucketName" class="form-label">存储桶名称 <span class="text-danger">*</span></label>
+                                <input type="text" class="form-control" id="watermarkBucketName" placeholder="请输入OSS存储桶名称" required>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="watermarkObjectKey" class="form-label">文件对象键 <span class="text-danger">*</span></label>
+                                <input type="text" class="form-control" id="watermarkObjectKey" placeholder="请输入OSS对象键" required>
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label for="watermarkOutputDir" class="form-label">输出目录 <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" id="watermarkOutputDir" value="output/" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="watermarkVfArgs" class="form-label">文字/静态图片水印参数</label>
+                            <input type="text" class="form-control" id="watermarkVfArgs" 
+                                placeholder="例如：drawtext=fontfile=/usr/share/fonts/truetype/wqy/wqy-zenhei.ttc:text='hello函数计算':x=100:y=50:fontsize=24:fontcolor=red">
+                            <small class="form-text text-muted">用于添加文字水印或静态图片水印，二选一</small>
+                        </div>
+                        <div class="mb-3">
+                            <label for="watermarkFilterComplexArgs" class="form-label">动态GIF水印参数</label>
+                            <input type="text" class="form-control" id="watermarkFilterComplexArgs" 
+                                placeholder="例如：overlay=0:0:1">
+                            <small class="form-text text-muted">用于添加动态GIF水印，优先级高于文字/静态水印</small>
+                        </div>
+                        <div class="mb-3">
+                            <button type="button" class="btn btn-primary w-100" id="watermarkButton">添加水印</button>
+                        </div>
+                    </form>
+                    <div class="mt-4">
+                        <h6>处理结果：</h6>
+                        <div class="border p-3 bg-light">
+                            <pre id="watermarkResult" style="white-space: pre-wrap;">结果将显示在这里...</pre>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 视频转GIF模态框 -->
+    <div class="modal fade" id="gifModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">视频转GIF</h5>
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+                </div>
+                <div class="modal-body">
+                    <form id="gifForm">
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="gifBucketName" class="form-label">存储桶名称 <span class="text-danger">*</span></label>
+                                <input type="text" class="form-control" id="gifBucketName" placeholder="请输入OSS存储桶名称" required>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="gifObjectKey" class="form-label">文件对象键 <span class="text-danger">*</span></label>
+                                <input type="text" class="form-control" id="gifObjectKey" placeholder="请输入OSS对象键" required>
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label for="gifOutputDir" class="form-label">输出目录 <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" id="gifOutputDir" value="output/" required>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-4 mb-3">
+                                <label for="gifStart" class="form-label">开始时间（秒）</label>
+                                <input type="number" class="form-control" id="gifStart" value="0" min="0">
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <label for="gifDuration" class="form-label">持续时间（秒）</label>
+                                <input type="number" class="form-control" id="gifDuration" value="5" min="1">
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <label for="gifVframes" class="form-label">帧数</label>
+                                <input type="number" class="form-control" id="gifVframes" value="20" min="1">
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <button type="button" class="btn btn-primary w-100" id="gifButton">转换为GIF</button>
+                        </div>
+                    </form>
+                    <div class="mt-4">
+                        <h6>处理结果：</h6>
+                        <div class="border p-3 bg-light">
+                            <pre id="gifResult" style="white-space: pre-wrap;">结果将显示在这里...</pre>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 音频转换模态框 -->
+    <div class="modal fade" id="audioModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">音频格式转换</h5>
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+                </div>
+                <div class="modal-body">
+                    <form id="audioForm">
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="audioBucketName" class="form-label">存储桶名称 <span class="text-danger">*</span></label>
+                                <input type="text" class="form-control" id="audioBucketName" placeholder="请输入OSS存储桶名称" required>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="audioObjectKey" class="form-label">文件对象键 <span class="text-danger">*</span></label>
+                                <input type="text" class="form-control" id="audioObjectKey" placeholder="请输入OSS对象键" required>
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="audioOutputDir" class="form-label">输出目录 <span class="text-danger">*</span></label>
+                                <input type="text" class="form-control" id="audioOutputDir" value="output/" required>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="audioDstType" class="form-label">目标格式 <span class="text-danger">*</span></label>
+                                <select class="form-select" id="audioDstType" required>
+                                    <option value=".wav">WAV</option>
+                                    <option value=".mp3">MP3</option>
+                                    <option value=".flac">FLAC</option>
+                                    <option value=".aac">AAC</option>
+                                    <option value=".ogg">OGG</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="audioAc" class="form-label">声道数</label>
+                                <select class="form-select" id="audioAc">
+                                    <option value="">默认</option>
+                                    <option value="1">单声道 (1)</option>
+                                    <option value="2">立体声 (2)</option>
+                                </select>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="audioAr" class="form-label">采样率 (Hz)</label>
+                                <select class="form-select" id="audioAr">
+                                    <option value="">默认</option>
+                                    <option value="8000">8000 Hz</option>
+                                    <option value="11025">11025 Hz</option>
+                                    <option value="16000">16000 Hz</option>
+                                    <option value="22050">22050 Hz</option>
+                                    <option value="44100">44100 Hz (CD质量)</option>
+                                    <option value="48000">48000 Hz (DVD质量)</option>
+                                    <option value="96000">96000 Hz (高清质量)</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <button type="button" class="btn btn-primary w-100" id="audioButton">转换音频</button>
+                        </div>
+                    </form>
+                    <div class="mt-4">
+                        <h6>处理结果：</h6>
+                        <div class="border p-3 bg-light">
+                            <pre id="audioResult" style="white-space: pre-wrap;">结果将显示在这里...</pre>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 使用Bootstrap 4.6.1版本及JQuery -->
+    <script src="https://cdn.bootcdn.net/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+    <script src="https://cdn.bootcdn.net/ajax/libs/twitter-bootstrap/4.6.1/js/bootstrap.bundle.min.js"></script>
+    
+    <script>
+    window.addEventListener('DOMContentLoaded', function() {
+        console.log('页面DOM已加载完成');
+        
+        // 等待jQuery和Bootstrap完全加载
+        var checkJQueryAndBootstrap = function() {
+            if (window.jQuery && typeof $.fn.modal === 'function') {
+                initModals();
+            } else {
+                setTimeout(checkJQueryAndBootstrap, 100);
+            }
+        };
+        
+        checkJQueryAndBootstrap();
+        
+        function initModals() {
+            console.log('初始化模态框');
+            console.log('jQuery版本:', $.fn.jquery);
+            
+            // 1. 隐藏所有模态框
+            $('.modal').hide();
+            
+            // 2. 手动初始化所有模态框
+            $('.modal').each(function() {
+                var modalId = '#' + $(this).attr('id');
+                console.log('初始化模态框:', modalId);
+            });
+            
+            // 3. 重新绑定所有按钮事件，使用基本的jQuery代码(不依赖Bootstrap的data-*属性)
+            $('.btn-primary').each(function() {
+                var $btn = $(this);
+                var targetId = $btn.attr('data-target');
+                
+                if (targetId) {
+                    console.log('绑定按钮事件:', targetId);
+                    
+                    // 移除之前的所有事件
+                    $btn.off('click');
+                    
+                    // 添加新的点击处理
+                    $btn.on('click', function(e) {
+                        e.preventDefault();
+                        console.log('点击按钮，准备显示:', targetId);
+                        
+                        // 显示模态框，同时添加背景遮罩
+                        $(targetId).css('display', 'block');
+                        $('<div class="modal-backdrop fade show"></div>').appendTo('body');
+                        $(targetId).addClass('show');
+                        $('body').addClass('modal-open');
+                        
+                        // 模态框关闭按钮事件处理
+                        $(targetId).find('[data-dismiss="modal"]').on('click', function() {
+                            $(targetId).css('display', 'none');
+                            $(targetId).removeClass('show');
+                            $('.modal-backdrop').remove();
+                            $('body').removeClass('modal-open');
+                        });
+                    });
+                }
+            });
+            
+            // 已移除测试按钮
+        }
+    });
+    </script>
+    
+    <!-- 自定义JS -->
+    <script th:src="@{/js/main.js}"></script>
+    <!-- 调试脚本 -->
+    <script th:src="@{/js/debug.js}"></script>
+    <!-- 模态框修复脚本 -->
+    <script th:src="@{/js/fix-modal.js}"></script>
+    
+    <!-- 模态框结构 -->
+    
+    <!-- 获取媒体元信息模态框 -->
+    <div class="modal fade" id="mediaMetaModal" tabindex="-1" role="dialog" aria-labelledby="mediaMetaModalLabel" aria-hidden="true">
+        <div class="modal-dialog" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="mediaMetaModalLabel">获取媒体元信息</h5>
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                        <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label for="metaBucketName">存储桶名称</label>
+                        <input type="text" class="form-control" id="metaBucketName" placeholder="请输入OSS存储桶名称">
+                    </div>
+                    <div class="form-group">
+                        <label for="metaObjectKey">文件对象键</label>
+                        <input type="text" class="form-control" id="metaObjectKey" placeholder="请输入OSS对象键，如video/example.mp4">
+                    </div>
+                    <div class="form-group mt-4">
+                        <button id="getMediaMetaButton" class="btn btn-primary">获取元信息</button>
+                    </div>
+                    <div class="mt-3">
+                        <p>处理结果：</p>
+                        <pre id="mediaMetaResult" class="result-area">结果将显示在这里...</pre>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-dismiss="modal">关闭</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 获取媒体时长模态框 -->
+    <div class="modal fade" id="durationModal" tabindex="-1" role="dialog" aria-labelledby="durationModalLabel" aria-hidden="true">
+        <div class="modal-dialog" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="durationModalLabel">获取媒体时长</h5>
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                        <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label for="durationBucketName">存储桶名称</label>
+                        <input type="text" class="form-control" id="durationBucketName" placeholder="请输入OSS存储桶名称">
+                    </div>
+                    <div class="form-group">
+                        <label for="durationObjectKey">文件对象键</label>
+                        <input type="text" class="form-control" id="durationObjectKey" placeholder="请输入OSS对象键，如video/example.mp4">
+                    </div>
+                    <div class="form-group mt-4">
+                        <button id="getDurationButton" class="btn btn-primary">获取时长</button>
+                    </div>
+                    <div class="mt-3">
+                        <p>处理结果：</p>
+                        <div id="durationLoading" class="d-none">
+                            <div class="text-center">
+                                <div class="spinner-border text-primary" role="status">
+                                    <span class="sr-only">加载中...</span>
+                                </div>
+                                <p>正在获取时长信息...</p>
+                            </div>
+                        </div>
+                        <div id="durationError" class="d-none">
+                            <div class="alert alert-danger">
+                                <i class="fas fa-exclamation-circle mr-2"></i>
+                                <span id="durationErrorText"></span>
+                            </div>
+                        </div>
+                        <div id="durationResultContainer" class="d-none">
+                            <table class="table table-bordered">
+                                <thead class="thead-light">
+                                    <tr>
+                                        <th colspan="2" class="text-center">媒体时长信息</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <th style="width: 30%">精确时长（秒）</th>
+                                        <td id="duration_seconds">-</td>
+                                    </tr>
+                                    <tr>
+                                        <th>格式化时长</th>
+                                        <td id="duration_formatted">-</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                        <!-- 已移除原始 JSON 显示区域 -->
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-dismiss="modal">关闭</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 雪碧图生成模态框 -->
+    <div class="modal fade" id="spritesModal" tabindex="-1" role="dialog" aria-labelledby="spritesModalLabel" aria-hidden="true">
+        <div class="modal-dialog" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="spritesModalLabel">雪碧图生成</h5>
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                        <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label for="spritesBucketName">存储桶名称 *</label>
+                        <input type="text" class="form-control" id="spritesBucketName" placeholder="请输入OSS存储桶名称">
+                    </div>
+                    <div class="form-group">
+                        <label for="spritesObjectKey">文件对象键 *</label>
+                        <input type="text" class="form-control" id="spritesObjectKey" placeholder="请输入OSS对象键">
+                    </div>
+                    <div class="form-group">
+                        <label for="spritesOutputDir">输出目录 *</label>
+                        <input type="text" class="form-control" id="spritesOutputDir" value="output/">
+                    </div>
+                    <div class="form-group">
+                        <label for="spritesTile">雪碧图布局 *</label>
+                        <input type="text" class="form-control" id="spritesTile" value="3*4">
+                    </div>
+                    <div class="form-group">
+                        <label for="spritesStart">开始时间（秒）</label>
+                        <input type="number" class="form-control" id="spritesStart" value="0">
+                    </div>
+                    <div class="form-group">
+                        <label for="spritesDuration">持续时间（秒）</label>
+                        <input type="number" class="form-control" id="spritesDuration" value="10">
+                    </div>
+                    <div class="form-group">
+                        <label for="spritesInterval">截图间隔（秒）</label>
+                        <input type="number" class="form-control" id="spritesInterval" value="5">
+                    </div>
+                    <div class="form-group mt-4">
+                        <button id="getSpritesButton" class="btn btn-primary">生成雪碧图</button>
+                    </div>
+                    <div class="mt-3">
+                        <p>处理结果：</p>
+                        <pre id="spritesResult" class="result-area">结果将显示在这里...</pre>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-dismiss="modal">关闭</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 视频添加水印模态框 -->
+    <div class="modal fade" id="watermarkModal" tabindex="-1" role="dialog" aria-labelledby="watermarkModalLabel" aria-hidden="true">
+        <div class="modal-dialog" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="watermarkModalLabel">视频添加水印</h5>
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                        <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label for="watermarkBucketName">存储桶名称 *</label>
+                        <input type="text" class="form-control" id="watermarkBucketName" placeholder="请输入OSS存储桶名称">
+                    </div>
+                    <div class="form-group">
+                        <label for="watermarkObjectKey">文件对象键 *</label>
+                        <input type="text" class="form-control" id="watermarkObjectKey" placeholder="请输入OSS对象键">
+                    </div>
+                    <div class="form-group">
+                        <label for="watermarkOutputDir">输出目录 *</label>
+                        <input type="text" class="form-control" id="watermarkOutputDir" value="output/">
+                    </div>
+                    <div class="form-group">
+                        <label for="watermarkVfArgs">文字/静态图片水印参数</label>
+                        <input type="text" class="form-control" id="watermarkVfArgs" placeholder="例如：drawtext=fontfile=/usr/share/fonts/truetype/wqy/wqy-zenhei.ttc:text='hello函数计算':x=100:y=50:fontsize=24:fontcolor=red">
+                        <small class="form-text text-muted">用于添加文字水印或静态图片水印，二选一</small>
+                    </div>
+                    <div class="form-group">
+                        <label for="watermarkFilterComplexArgs">动态GIF水印参数</label>
+                        <input type="text" class="form-control" id="watermarkFilterComplexArgs" placeholder="例如：overlay=0:0:1">
+                        <small class="form-text text-muted">用于添加动态GIF水印，优先级高于文字/静态水印</small>
+                    </div>
+                    <div class="form-group mt-4">
+                        <button id="watermarkButton" class="btn btn-primary">添加水印</button>
+                    </div>
+                    <div class="mt-3">
+                        <p>处理结果：</p>
+                        <pre id="watermarkResult" class="result-area">结果将显示在这里...</pre>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-dismiss="modal">关闭</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 视频转GIF模态框 -->
+    <div class="modal fade" id="gifModal" tabindex="-1" role="dialog" aria-labelledby="gifModalLabel" aria-hidden="true">
+        <div class="modal-dialog" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="gifModalLabel">视频转GIF</h5>
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                        <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label for="gifBucketName">存储桶名称 *</label>
+                        <input type="text" class="form-control" id="gifBucketName" placeholder="请输入OSS存储桶名称">
+                    </div>
+                    <div class="form-group">
+                        <label for="gifObjectKey">文件对象键 *</label>
+                        <input type="text" class="form-control" id="gifObjectKey" placeholder="请输入OSS对象键">
+                    </div>
+                    <div class="form-group">
+                        <label for="gifOutputDir">输出目录 *</label>
+                        <input type="text" class="form-control" id="gifOutputDir" value="output/">
+                    </div>
+                    <div class="form-group">
+                        <label for="gifStart">开始时间（秒）</label>
+                        <input type="number" class="form-control" id="gifStart" value="0">
+                    </div>
+                    <div class="form-group">
+                        <label for="gifDuration">持续时间（秒）</label>
+                        <input type="number" class="form-control" id="gifDuration" value="5">
+                    </div>
+                    <div class="form-group">
+                        <label for="gifVframes">帧数</label>
+                        <input type="number" class="form-control" id="gifVframes" value="20">
+                    </div>
+                    <div class="form-group mt-4">
+                        <button id="gifButton" class="btn btn-primary">转换为GIF</button>
+                    </div>
+                    <div class="mt-3">
+                        <p>处理结果：</p>
+                        <pre id="gifResult" class="result-area">结果将显示在这里...</pre>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-dismiss="modal">关闭</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 音频格式转换模态框 -->
+    <div class="modal fade" id="audioModal" tabindex="-1" role="dialog" aria-labelledby="audioModalLabel" aria-hidden="true">
+        <div class="modal-dialog" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="audioModalLabel">音频格式转换</h5>
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                        <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label for="audioBucketName">存储桶名称 *</label>
+                        <input type="text" class="form-control" id="audioBucketName" placeholder="请输入OSS存储桶名称">
+                    </div>
+                    <div class="form-group">
+                        <label for="audioObjectKey">文件对象键 *</label>
+                        <input type="text" class="form-control" id="audioObjectKey" placeholder="请输入OSS对象键">
+                    </div>
+                    <div class="form-group">
+                        <label for="audioOutputDir">输出目录 *</label>
+                        <input type="text" class="form-control" id="audioOutputDir" value="output/">
+                    </div>
+                    <div class="form-group">
+                        <label for="audioDstType">目标格式 *</label>
+                        <select class="form-control" id="audioDstType">
+                            <option value="WAV">WAV</option>
+                            <option value="MP3">MP3</option>
+                            <option value="AAC">AAC</option>
+                            <option value="FLAC">FLAC</option>
+                            <option value="OGG">OGG</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="audioAc">声道数</label>
+                        <select class="form-control" id="audioAc">
+                            <option value="">默认</option>
+                            <option value="1">单声道</option>
+                            <option value="2">双声道</option>
+                            <option value="6">5.1声道</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="audioAr">采样率 (Hz)</label>
+                        <select class="form-control" id="audioAr">
+                            <option value="">默认</option>
+                            <option value="8000">8000</option>
+                            <option value="16000">16000</option>
+                            <option value="22050">22050</option>
+                            <option value="44100">44100</option>
+                            <option value="48000">48000</option>
+                        </select>
+                    </div>
+                    <div class="form-group mt-4">
+                        <button id="audioButton" class="btn btn-primary">转换音频</button>
+                    </div>
+                    <div class="mt-3">
+                        <p>处理结果：</p>
+                        <pre id="audioResult" class="result-area">结果将显示在这里...</pre>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-dismiss="modal">关闭</button>
+    <script src="https://cdn.bootcdn.net/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+    <script src="https://cdn.bootcdn.net/ajax/libs/popper.js/1.16.1/umd/popper.min.js"></script>
+    <script src="https://cdn.bootcdn.net/ajax/libs/twitter-bootstrap/4.6.1/js/bootstrap.min.js"></script>
+    <script src="https://cdn.bootcdn.net/ajax/libs/jquery-toast-plugin/1.3.2/jquery.toast.min.js"></script>
+    <script src="/ffmpeg-processor/js/main.js"></script>
+    <script src="/ffmpeg-processor/js/fix-modal.js"></script>
+    <script src="/ffmpeg-processor/js/upload.js"></script>
+    ...
+            
+            // 确保模态框正常工作
+            $('.modal').on('show.bs.modal', function (e) {
+                console.log('模态框即将显示： ' + $(this).attr('id'));
+            });
+            
+            // 修复模态框关闭后遮罩不消失的问题
+            $('.modal').on('hidden.bs.modal', function (e) {
+                console.log('模态框已关闭： ' + $(this).attr('id'));
+                // 移除可能存在的任何模态框背景遮罩
+                $('.modal-backdrop').remove();
+                $('body').removeClass('modal-open');
+                $('body').css('padding-right', '');
+            });
+            
+            // 添加全局点击事件处理，检查是否有遗留的backdrop
+            $(document).click(function(e) {
+                if ($('.modal-backdrop').length > 0 && $('.modal:visible').length === 0) {
+                    console.log('检测到遮罩存在但模态框不可见，清除遮罩');
+                    $('.modal-backdrop').remove();
+                    $('body').removeClass('modal-open');
+                    $('body').css('padding-right', '');
+                }
+            });
+        });
+    </script>
+</body>
+</html>

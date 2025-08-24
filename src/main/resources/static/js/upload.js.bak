@@ -1,0 +1,986 @@
+/**
+ * 文件上传及处理功能相关JavaScript
+ */
+$(document).ready(function() {
+    // 全局变量存储上传的文件信息
+    let uploadedFiles = [];
+    let selectedFileIndex = 0;
+    
+    // 文件选择按钮事件
+    $('#selectFileButton').click(function() {
+        $('#fileInput').click();
+    });
+    
+    // 文件选择变更事件
+    $('#fileInput').change(function(e) {
+        if (this.files.length > 0) {
+            handleFiles(this.files);
+        }
+    });
+    
+    // 拖放区域事件
+    const dropzone = document.getElementById('dropzone');
+    if (dropzone) {
+        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+            dropzone.addEventListener(eventName, preventDefaults, false);
+        });
+        
+        ['dragenter', 'dragover'].forEach(eventName => {
+            dropzone.addEventListener(eventName, function() {
+                dropzone.classList.add('dropzone-highlight');
+            }, false);
+        });
+        
+        ['dragleave', 'drop'].forEach(eventName => {
+            dropzone.addEventListener(eventName, function() {
+                dropzone.classList.remove('dropzone-highlight');
+            }, false);
+        });
+        
+        // 处理文件拖放
+        dropzone.addEventListener('drop', function(e) {
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                handleFiles(files);
+            }
+        }, false);
+    }
+    
+    // 添加更多文件按钮
+    $('#addMoreFileBtn').click(function() {
+        $('#fileInput').click();
+    });
+    
+    // 处理文件上传
+    function handleFiles(files) {
+        // 显示上传进度
+        $('#uploadProgress').removeClass('d-none');
+        $('.progress-bar').width('0%').attr('aria-valuenow', 0);
+        
+        // 上传第一个文件
+        uploadFile(files[0]);
+    }
+    
+    // 上传单个文件
+    function uploadFile(file) {
+        // 检查文件大小
+        if (file.size > 100 * 1024 * 1024) { // 100MB
+            showToast('文件过大', '请选择小于100MB的文件', 'error');
+            $('#uploadProgress').addClass('d-none');
+            return;
+        }
+        
+        const formData = new FormData();
+        formData.append('file', file);
+        
+        $.ajax({
+            url: '/ffmpeg-processor/api/upload',
+            type: 'POST',
+            data: formData,
+            processData: false,
+            contentType: false,
+            xhr: function() {
+                const xhr = new window.XMLHttpRequest();
+                xhr.upload.addEventListener('progress', function(e) {
+                    if (e.lengthComputable) {
+                        const percent = Math.round((e.loaded / e.total) * 100);
+                        $('.progress-bar').width(percent + '%').attr('aria-valuenow', percent);
+                    }
+                }, false);
+                return xhr;
+            },
+            success: function(response) {
+                // 隐藏上传进度
+                $('#uploadProgress').addClass('d-none');
+                
+                if (response.code === 0) {
+                    // 添加到已上传文件列表
+                    const fileObj = {
+                        originalName: file.name,
+                        size: file.size,
+                        type: file.type,
+                        bucketName: response.data.bucketName,
+                        objectKey: response.data.objectKey
+                    };
+                    uploadedFiles.push(fileObj);
+                    
+                    // 更新UI
+                    updateFileList();
+                    
+                    // 显示功能选择区域和文件列表
+                    $('#uploadInitialArea').addClass('d-none');
+                    $('#fileProcessArea').removeClass('d-none');
+                } else {
+                    showToast('上传失败', response.message || '文件上传失败', 'error');
+                }
+            },
+            error: function(xhr, status, error) {
+                $('#uploadProgress').addClass('d-none');
+                showToast('上传失败', '请求错误: ' + error, 'error');
+            }
+        });
+    }
+    
+    // 更新已上传文件列表
+    function updateFileList() {
+        const fileListEl = $('#fileList');
+        fileListEl.empty();
+        
+        uploadedFiles.forEach((file, index) => {
+            const fileSize = formatFileSize(file.size);
+            const isSelected = index === selectedFileIndex ? 'selected' : '';
+            
+            // 显示文件图标
+            let fileIcon = 'fa-file';
+            if (file.type.includes('video')) {
+                fileIcon = 'fa-file-video';
+            } else if (file.type.includes('audio')) {
+                fileIcon = 'fa-file-audio';
+            }
+            
+            const fileItem = `
+                <div class="file-item d-flex align-items-center p-2 border rounded mb-2 ${isSelected}" data-index="${index}">
+                    <i class="fas ${fileIcon} mr-3 text-primary"></i>
+                    <div class="flex-grow-1">
+                        <div class="font-weight-bold">${file.originalName}</div>
+                        <div class="text-muted small">${fileSize}</div>
+                    </div>
+                    <button class="btn btn-sm btn-danger remove-file-btn" data-index="${index}">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+            `;
+            
+            fileListEl.append(fileItem);
+        });
+        
+        // 为文件项添加点击事件
+        $('.file-item').click(function() {
+            const index = $(this).data('index');
+            selectedFileIndex = index;
+            $('.file-item').removeClass('selected');
+            $(this).addClass('selected');
+        });
+        
+        // 为删除按钮添加事件
+        $('.remove-file-btn').click(function(e) {
+            e.stopPropagation();
+            const index = $(this).data('index');
+            uploadedFiles.splice(index, 1);
+            
+            if (uploadedFiles.length === 0) {
+                // 没有文件了，返回初始上传界面
+                $('#uploadInitialArea').removeClass('d-none');
+                $('#fileProcessArea').addClass('d-none');
+                $('#resultArea').addClass('d-none');
+            } else {
+                if (selectedFileIndex >= uploadedFiles.length) {
+                    selectedFileIndex = uploadedFiles.length - 1;
+                }
+                updateFileList();
+            }
+        });
+    }
+    
+    // 为功能按钮添加点击事件
+    $(document).on('click', '.function-btn', function() {
+        const functionName = $(this).data('function');
+        if (uploadedFiles.length === 0) {
+            showToast('请上传文件', '请先上传文件再执行操作', 'warning');
+            return;
+        }
+        
+        executeFunction(functionName, uploadedFiles[selectedFileIndex]);
+    });
+    
+    // 执行功能操作
+    function executeFunction(functionName, file) {
+        // 显示结果区域
+        $('#resultArea').removeClass('d-none');
+        $('#resultArea').html(`
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">处理中...</h5>
+                </div>
+                <div class="card-body text-center py-5">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="sr-only">处理中...</span>
+                    </div>
+                    <p class="mt-3">正在处理，请稍候...</p>
+                </div>
+            </div>
+        `);
+        
+        // 滚动到结果区域
+        $('html, body').animate({
+            scrollTop: $("#resultArea").offset().top - 20
+        }, 500);
+        
+        // 准备请求数据
+        const requestData = {
+            bucketName: file.bucketName,
+            objectKey: file.objectKey
+        };
+        
+        // 根据功能类型选择API
+        let apiUrl = '';
+        let apiTitle = '';
+        
+        switch(functionName) {
+            case 'metadata':
+                apiUrl = '/ffmpeg-processor/api/ffmpeg/getMediaMeta';
+                apiTitle = '媒体元数据';
+                break;
+            case 'duration':
+                apiUrl = '/ffmpeg-processor/api/ffmpeg/getDuration';
+                apiTitle = '媒体时长';
+                break;
+            case 'sprites':
+                // 雪碧图生成需要显示表单，供用户设置参数
+                displaySpriteForm(file);
+                // 不发送请求，由表单提交时处理
+                return;
+            case 'watermark':
+                apiUrl = '/ffmpeg-processor/api/ffmpeg/watermark';
+                apiTitle = '视频水印';
+                break;
+            default:
+                showToast('未知功能', '未能识别的功能操作', 'error');
+                $('#resultArea').addClass('d-none');
+                return;
+        }
+        
+        // 发送请求
+        $.ajax({
+            url: apiUrl,
+            type: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify(requestData),
+            success: function(response) {
+                if (response.code === 0) {
+                    // 根据不同功能显示结果
+                    switch(functionName) {
+                        case 'metadata':
+                            displayMediaMetadata(response.data, apiTitle);
+                            break;
+                        case 'duration':
+                            displayMediaDuration(response.data, apiTitle);
+                            break;
+                        case 'sprites':
+                            displaySpriteResult(response.data, apiTitle);
+                            break;
+                        case 'watermark':
+                            // 水印结果展示
+                            break;
+                    }
+                } else {
+                    $('#resultArea').html(`
+                        <div class="card">
+                            <div class="card-header bg-danger text-white">
+                                <h5 class="mb-0">处理出错</h5>
+                            </div>
+                            <div class="card-body">
+                                <div class="alert alert-danger">
+                                    <i class="fas fa-exclamation-circle mr-2"></i>
+                                    ${response.message || '操作处理失败'}
+                                </div>
+                            </div>
+                        </div>
+                    `);
+                }
+            },
+            error: function(xhr, status, error) {
+                $('#resultArea').html(`
+                    <div class="card">
+                        <div class="card-header bg-danger text-white">
+                            <h5 class="mb-0">请求失败</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="alert alert-danger">
+                                <i class="fas fa-exclamation-circle mr-2"></i>
+                                请求失败: ${error}
+                            </div>
+                        </div>
+                    </div>
+                `);
+            }
+        });
+    }
+    
+    // 显示媒体时长结果
+    function displayMediaDuration(data, title) {
+        // 如果是字符串，尝试解析JSON
+        let durationData = data;
+        if (typeof data === 'string') {
+            try {
+                durationData = JSON.parse(data);
+            } catch(e) {
+                console.error('无法解析时长数据:', e);
+                $('#resultArea').html(`
+                    <div class="alert alert-danger">
+                        <i class="fas fa-exclamation-circle mr-2"></i>
+                        无法解析时长数据: ${e.message}
+                    </div>
+                `);
+                return;
+            }
+        }
+        
+        // 获取数据
+        const seconds = parseFloat(durationData.duration).toFixed(3);
+        const formattedTime = durationData.formatted_duration || formatDuration(parseFloat(durationData.duration));
+        
+        // 创建结果HTML
+        $('#resultArea').html(`
+            <div class="card">
+                <div class="card-header bg-success text-white">
+                    <h5 class="mb-0">${title}分析完成</h5>
+                </div>
+                <div class="card-body">
+                    <table class="table table-bordered">
+                        <thead class="thead-light">
+                            <tr>
+                                <th colspan="2" class="text-center">媒体时长信息</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <th style="width: 30%">精确时长（秒）</th>
+                                <td>${seconds}</td>
+                            </tr>
+                            <tr>
+                                <th>格式化时长</th>
+                                <td>${formattedTime}</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        `);
+    }
+    
+    // 显示媒体元数据结果
+    function displayMediaMetadata(data, title) {
+        // 如果是字符串，尝试解析JSON
+        let metaData = data;
+        if (typeof data === 'string') {
+            try {
+                metaData = JSON.parse(data);
+            } catch(e) {
+                console.error('无法解析元数据:', e);
+                $('#resultArea').html(`
+                    <div class="alert alert-danger">
+                        <i class="fas fa-exclamation-circle mr-2"></i>
+                        无法解析元数据: ${e.message}
+                    </div>
+                `);
+                return;
+            }
+        }
+        
+        // 创建基本信息HTML
+        let resultHtml = `
+            <div class="card">
+                <div class="card-header bg-success text-white">
+                    <h5 class="mb-0">${title}分析完成</h5>
+                </div>
+                <div class="card-body">
+                    <h5 class="mb-3">基本信息</h5>
+                    <table class="table table-bordered mb-4">
+                        <tbody>
+                            <tr>
+                                <th style="width: 30%">文件名</th>
+                                <td>${metaData.fileName || '-'}</td>
+                            </tr>
+                            <tr>
+                                <th>格式</th>
+                                <td>${metaData.format || '-'}</td>
+                            </tr>
+                            <tr>
+                                <th>时长</th>
+                                <td>${metaData.duration || '-'}</td>
+                            </tr>
+                            <tr>
+                                <th>大小</th>
+                                <td>${metaData.size || '-'}</td>
+                            </tr>
+                            <tr>
+                                <th>比特率</th>
+                                <td>${metaData.bitRate || '-'}</td>
+                            </tr>
+                        </tbody>
+                    </table>`;
+        
+        // 处理视频流信息
+        if (metaData.videoStreams && metaData.videoStreams.length > 0) {
+            resultHtml += `
+                <h5 class="mb-3">视频流信息</h5>
+                <table class="table table-bordered table-striped mb-4">
+                    <thead class="thead-light">
+                        <tr>
+                            <th>序号</th>
+                            <th>编解码器</th>
+                            <th>分辨率</th>
+                            <th>帧率</th>
+                            <th>比特率</th>
+                            <th>像素格式</th>
+                        </tr>
+                    </thead>
+                    <tbody>`;
+                    
+            metaData.videoStreams.forEach(function(stream) {
+                resultHtml += `
+                    <tr>
+                        <td>${(stream.index + 1) || '-'}</td>
+                        <td>${stream.codecName || '-'}</td>
+                        <td>${stream.width ? (stream.width + 'x' + stream.height) : '-'}</td>
+                        <td>${stream.frameRate || '-'}</td>
+                        <td>${stream.bitRate || '-'}</td>
+                        <td>${stream.pixelFormat || '-'}</td>
+                    </tr>`;
+            });
+            
+            resultHtml += `
+                    </tbody>
+                </table>`;
+        }
+        
+        // 处理音频流信息
+        if (metaData.audioStreams && metaData.audioStreams.length > 0) {
+            resultHtml += `
+                <h5 class="mb-3">音频流信息</h5>
+                <table class="table table-bordered table-striped">
+                    <thead class="thead-light">
+                        <tr>
+                            <th>序号</th>
+                            <th>编解码器</th>
+                            <th>声道数</th>
+                            <th>声道布局</th>
+                            <th>采样率</th>
+                            <th>比特率</th>
+                        </tr>
+                    </thead>
+                    <tbody>`;
+                    
+            metaData.audioStreams.forEach(function(stream) {
+                resultHtml += `
+                    <tr>
+                        <td>${(stream.index + 1) || '-'}</td>
+                        <td>${stream.codecName || '-'}</td>
+                        <td>${stream.channels || '-'}</td>
+                        <td>${stream.channelLayout || '-'}</td>
+                        <td>${stream.sampleRate || '-'}</td>
+                        <td>${stream.bitRate || '-'}</td>
+                    </tr>`;
+            });
+            
+            resultHtml += `
+                    </tbody>
+                </table>`;
+        }
+        
+        resultHtml += `
+                </div>
+            </div>`;
+        
+        $('#resultArea').html(resultHtml);
+    }
+    
+    // 格式化文件大小
+    function formatFileSize(bytes) {
+        if (bytes === 0) return '0 Bytes';
+        
+        const k = 1024;
+        const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+        
+        return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+    }
+    
+    // 创建结果HTML
+    $('#resultArea').html(`
+        <div class="card">
+            <div class="card-header bg-success text-white">
+                <h5 class="mb-0">${title}分析完成</h5>
+            </div>
+            <div class="card-body">
+                <table class="table table-bordered">
+                    <thead class="thead-light">
+                        <tr>
+                            <th colspan="2" class="text-center">媒体时长信息</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <th style="width: 30%">精确时长（秒）</th>
+                            <td>${seconds}</td>
+                        </tr>
+                        <tr>
+                            <th>格式化时长</th>
+                            <td>${formattedTime}</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+            $('#resultArea').html(`
+                <div class="card">
+                    <div class="card-header bg-success text-white">
+                        <h5 class="mb-0">${title}分析完成</h5>
+                    </div>
+                    <div class="card-body">
+                        <table class="table table-bordered">
+                            <thead class="thead-light">
+                                <tr>
+                                    <th colspan="2" class="text-center">媒体时长信息</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <th style="width: 30%">精确时长（秒）</th>
+                                    <td>${seconds}</td>
+                                </tr>
+                                <tr>
+                                    <th>格式化时长</th>
+                                    <td>${formattedTime}</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            `);
+        }
+            <div class="card-body">
+                <h5 class="mb-3">基本信息</h5>
+                <table class="table table-bordered mb-4">
+                    <tbody>
+                        <tr>
+                            <th style="width: 30%">文件名</th>
+                            <td>${metaData.fileName || '-'}</td>
+                        </tr>
+                        <tr>
+                            <th>格式</th>
+                            <td>${metaData.format || '-'}</td>
+                        </tr>
+                        <tr>
+                            <th>时长</th>
+                            <td>${metaData.duration || '-'}</td>
+                        </tr>
+                        <tr>
+                            <th>大小</th>
+                            <td>${metaData.size || '-'}</td>
+                        </tr>
+                        <tr>
+                            <th>比特率</th>
+                            <td>${metaData.bitRate || '-'}</td>
+                        </tr>
+                    </tbody>
+                </table>`;
+    
+    // 处理视频流信息
+    if (metaData.videoStreams && metaData.videoStreams.length > 0) {
+        resultHtml += `
+            <h5 class="mb-3">视频流信息</h5>
+            <table class="table table-bordered table-striped mb-4">
+                <thead class="thead-light">
+                    <tr>
+                        <th>序号</th>
+                        <th>编解码器</th>
+                        <th>分辨率</th>
+                        <th>帧率</th>
+                        <th>比特率</th>
+                        <th>像素格式</th>
+                    </tr>
+                </thead>
+                <tbody>`;                
+        metaData.videoStreams.forEach(function(stream) {
+            resultHtml += `
+                <tr>
+                    <td>${(stream.index + 1) || '-'}</td>
+                    <td>${stream.codecName || '-'}</td>
+                    <td>${stream.width ? (stream.width + 'x' + stream.height) : '-'}</td>
+                    <td>${stream.frameRate || '-'}</td>
+                    <td>${stream.bitRate || '-'}</td>
+                    <td>${stream.pixelFormat || '-'}</td>
+                </tr>`;
+        });
+        
+        resultHtml += `
+                </tbody>
+            </table>`;
+    }
+    
+    // 处理音频流信息
+    if (metaData.audioStreams && metaData.audioStreams.length > 0) {
+        resultHtml += `
+            <h5 class="mb-3">音频流信息</h5>
+            <table class="table table-bordered table-striped mb-4">
+                <thead class="thead-light">
+                    <tr>
+                        <th>序号</th>
+                        <th>编解码器</th>
+                        <th>采样率</th>
+                        <th>声道</th>
+                        <th>比特率</th>
+                    </tr>
+                </thead>
+                <tbody>`;
+                
+        metaData.audioStreams.forEach(function(stream) {
+            resultHtml += `
+                <tr>
+                    <td>${(stream.index + 1) || '-'}</td>
+                    <td>${stream.codecName || '-'}</td>
+                    <td>${stream.sampleRate || '-'}</td>
+                    <td>${stream.channels || '-'}</td>
+                    <td>${stream.bitRate || '-'}</td>
+                </tr>`;
+        });
+        
+        resultHtml += `
+                </tbody>
+            </table>`;
+    }
+    
+    // 显示最终结果
+    $('#resultArea').html(resultHtml + '</div></div>');
+}
+
+// 显示雪碧图表单
+function displaySpriteForm(file) {
+    const formHtml = `
+        <div class="card">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0">雪碧图生成参数设置</h5>
+            </div>
+            <div class="card-body">
+                <form id="spriteForm">
+                    <input type="hidden" name="bucketName" value="${file.bucketName}">
+                    <input type="hidden" name="objectKey" value="${file.objectKey}">
+                    
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label for="outputDir">输出目录</label>
+                                <input type="text" class="form-control" id="outputDir" name="outputDir" 
+                                    value="sprites/${file.objectKey.split('/').pop().replace(/\.[^\.]+$/, '')}" required>
+                                <small class="form-text text-muted">生成的雪碧图存储路径</small>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label for="tile">网格布局 (行x列)</label>
+                                <input type="text" class="form-control" id="tile" name="tile" value="4x4" required>
+                                <small class="form-text text-muted">例如: 4x4 表示4行4列</small>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-4">
+                            <div class="form-group">
+                                <label for="start">开始时间(秒)</label>
+                                <input type="number" class="form-control" id="start" name="start" value="0" min="0" required>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="form-group">
+                                <label for="duration">持续时间(秒)</label>
+                                <input type="number" class="form-control" id="duration" name="duration" value="60" min="1" required>
+                                <small class="form-text text-muted">从开始时间开始截取的时长</small>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="form-group">
+                                <label for="interval">截图间隔(秒)</label>
+                                <input type="number" class="form-control" id="interval" name="interval" value="5" min="1" required>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-4">
+                            <div class="form-group">
+                                <label for="scale">缩放比例</label>
+                                <input type="text" class="form-control" id="scale" name="scale" value="-1:-1">
+                                <small class="form-text text-muted">例如: 320:240, -1:-1为保持宽高比</small>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="form-group">
+                                <label for="padding">图像间隔(像素)</label>
+                                <input type="number" class="form-control" id="padding" name="padding" value="1" min="0" required>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="form-group">
+                                <label for="color">背景色</label>
+                                <input type="text" class="form-control" id="color" name="color" value="black">
+                                <small class="form-text text-muted">例如: black, white, blue</small>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-4">
+                            <div class="form-group">
+                                <label for="itsoffset">偏移量(秒)</label>
+                                <input type="number" class="form-control" id="itsoffset" name="itsoffset" value="0" required>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="form-group">
+                                <label for="dstType">图像格式</label>
+                                <select class="form-control" id="dstType" name="dstType">
+                                    <option value="jpg">JPG</option>
+                                    <option value="png">PNG</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="text-center mt-4">
+                        <button type="submit" class="btn btn-primary btn-lg">生成雪碧图</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    `;
+    
+    $('#resultArea').html(formHtml);
+    
+    // 滚动到表单区域
+    $('html, body').animate({
+        scrollTop: $("#resultArea").offset().top - 20
+    }, 500);
+    
+    // 绑定表单提交事件
+    $('#spriteForm').submit(function(e) {
+        e.preventDefault();
+        
+        // 收集表单数据
+        const formData = {};
+        $(this).serializeArray().forEach(item => {
+            // 数值字段转换为数值类型
+            if(['start', 'duration', 'interval', 'padding', 'itsoffset'].includes(item.name)) {
+                formData[item.name] = parseInt(item.value, 10);
+            } else {
+                formData[item.name] = item.value;
+            }
+        });
+        
+        // 显示处理中状态
+        $('#resultArea').html(`
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">生成雪碧图中...</h5>
+                </div>
+                <div class="card-body text-center py-5">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="sr-only">处理中...</span>
+                    </div>
+                    <p class="mt-3">正在处理，请稍候...</p>
+                </div>
+            </div>
+        `);
+        
+        // 发送请求
+        $.ajax({
+            url: '/ffmpeg-processor/api/sprite/generate',
+            type: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify(formData),
+            success: function(response) {
+                if (response.code === 0) {
+                    displaySpriteResult(response.data, '雪碧图生成');
+                } else {
+                    $('#resultArea').html(`
+                        <div class="card">
+                            <div class="card-header bg-danger text-white">
+                                <h5 class="mb-0">雪碧图生成失败</h5>
+                            </div>
+                            <div class="card-body">
+                                <div class="alert alert-danger">
+                                    <i class="fas fa-exclamation-circle mr-2"></i>
+                                    ${response.message || '操作处理失败'}
+                                </div>
+                                <div class="text-center mt-3">
+                                    <button class="btn btn-outline-primary retry-sprite-btn">重试</button>
+                                </div>
+                            </div>
+                        </div>
+                    `);
+                    
+                    // 绑定重试按钮
+                    $('.retry-sprite-btn').click(function() {
+                        displaySpriteForm(file);
+                    });
+                }
+            },
+            error: function(xhr, status, error) {
+                $('#resultArea').html(`
+                    <div class="card">
+                        <div class="card-header bg-danger text-white">
+                            <h5 class="mb-0">请求失败</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="alert alert-danger">
+                                <i class="fas fa-exclamation-circle mr-2"></i>
+                                请求失败: ${error}
+                            </div>
+                            <div class="text-center mt-3">
+                                <button class="btn btn-outline-primary retry-sprite-btn">重试</button>
+                            </div>
+                        </div>
+                    </div>
+                `);
+                
+                // 绑定重试按钮
+                $('.retry-sprite-btn').click(function() {
+                    displaySpriteForm(file);
+                });
+            }
+        });
+    });
+}
+
+// 显示雪碧图结果
+function displaySpriteResult(data, title) {
+    let spriteData = data;
+    // 如果是字符串，尝试解析JSON
+    if (typeof data === 'string') {
+        try {
+            spriteData = JSON.parse(data);
+        } catch(e) {
+            console.error('无法解析雪碧图数据:', e);
+            $('#resultArea').html(`
+                <div class="alert alert-danger">
+                    <i class="fas fa-exclamation-circle mr-2"></i>
+                    无法解析雪碧图数据: ${e.message}
+                </div>
+            `);
+            return;
+        }
+    }
+    
+    // 检查是否有雪碧图URL
+    if (!spriteData.spriteUrls || !Array.isArray(spriteData.spriteUrls) || spriteData.spriteUrls.length === 0) {
+        $('#resultArea').html(`
+            <div class="card">
+                <div class="card-header bg-warning text-white">
+                    <h5 class="mb-0">无雪碧图结果</h5>
+                </div>
+                <div class="card-body">
+                    <div class="alert alert-warning">
+                        <i class="fas fa-exclamation-triangle mr-2"></i>
+                        未生成雪碧图或处理结果为空
+                    </div>
+                </div>
+            </div>
+        `);
+        return;
+    }
+    
+    // 创建图片展示HTML
+    let imagesHtml = '';
+    spriteData.spriteUrls.forEach((url, index) => {
+        imagesHtml += `
+            <div class="col-md-6 mb-3">
+                <div class="card h-100">
+                    <div class="card-header">
+                        <h6 class="mb-0">雪碧图 ${index + 1}</h6>
+                    </div>
+                    <a href="${url}" target="_blank" class="sprite-image-link">
+                        <img src="${url}" class="card-img-top sprite-image" alt="雪碧图 ${index + 1}">
+                    </a>
+                    <div class="card-footer">
+                        <a href="${url}" class="btn btn-sm btn-primary" download>下载图片</a>
+                        <button class="btn btn-sm btn-info copy-url-btn" data-url="${url}">复制链接</button>
+                    </div>
+                </div>
+            </div>
+        `;
+    });
+    
+    // 显示结果
+    $('#resultArea').html(`
+        <div class="card">
+            <div class="card-header bg-success text-white">
+                <h5 class="mb-0">${title}完成</h5>
+            </div>
+            <div class="card-body">
+                <div class="mb-3">
+                    <strong>输出目录:</strong> ${spriteData.outputDir || '未指定'}
+                </div>
+                <div class="row">
+                    ${imagesHtml}
+                </div>
+            </div>
+        </div>
+    `);
+    
+    // 绑定复制链接按钮
+    $('.copy-url-btn').click(function() {
+        const url = $(this).data('url');
+        const tempInput = $('<input>');
+        $('body').append(tempInput);
+        tempInput.val(url).select();
+        document.execCommand('copy');
+        tempInput.remove();
+        showToast('已复制', '链接已复制到剪贴板', 'success');
+    });
+    
+    // 为雪碧图添加点击放大效果
+    $('.sprite-image').click(function(e) {
+        e.preventDefault();
+        const imgSrc = $(this).attr('src');
+        $('body').append(`
+            <div class="sprite-modal" onclick="this.remove()">
+                <div class="sprite-modal-content">
+                    <img src="${imgSrc}" class="sprite-modal-img">
+                    <div class="sprite-modal-close">&times;</div>
+                </div>
+            </div>
+        `);
+    });
+}
+
+// 格式化文件大小
+function formatFileSize(size) {
+    if (size < 1024) return size + ' B';
+    size /= 1024;
+    if (size < 1024) return size.toFixed(2) + ' KB';
+    size /= 1024;
+    if (size < 1024) return size.toFixed(2) + ' MB';
+    size /= 1024;
+    return size.toFixed(2) + ' GB';
+}
+
+    // 格式化时长函数
+    function formatDuration(seconds) {
+        const h = Math.floor(seconds / 3600);
+        const m = Math.floor((seconds % 3600) / 60);
+        const s = Math.floor(seconds % 60);
+        const ms = Math.round((seconds % 1) * 1000);
+        
+        return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}.${ms.toString().padStart(3, '0')}`;
+    }
+    
+    // 阻止默认事件
+    function preventDefaults(e) {
+        e.preventDefault();
+        e.stopPropagation();
+    }
+    
+    // 显示Toast提示
+    function showToast(title, message, type) {
+        $.toast({
+            heading: title,
+            text: message,
+            showHideTransition: 'fade',
+            icon: type,
+            position: 'top-center',
+            hideAfter: 3000
+        });
+    }
+});

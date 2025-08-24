@@ -1,0 +1,44 @@
+server:
+  port: 8080
+  servlet:
+    context-path: /ffmpeg-processor
+
+spring:
+  application:
+    name: ffmpeg-processor-web
+  servlet:
+    multipart:
+      max-file-size: 100MB
+      max-request-size: 100MB
+  thymeleaf:
+    cache: false
+    prefix: classpath:/templates/
+    suffix: .html
+    encoding: UTF-8
+    mode: HTML
+
+# 阿里云配置
+aliyun:
+  # 填写您的阿里云账号ID
+  account-id: 
+  # 填写您的阿里云AccessKey
+  access-key: 
+  # 填写您的阿里云SecretKey
+  secret-key: 
+  # 区域
+  region: cn-hangzhou
+  # 函数计算配置
+  fc:
+    # 函数计算服务名称（新版FC可直接使用函数名调用）
+    service-name: ""
+    # 函数计算服务端点
+    endpoint: 
+  # OSS配置
+  oss:
+    # OSS存储桶名
+    bucket-name:
+    # OSS端点
+    endpoint: 
+logging:
+  level:
+    com.ffmpeg.web: debug

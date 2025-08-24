@@ -1,0 +1,177 @@
+<!-- 视频水印模态框 -->
+<div class="modal fade" id="watermarkModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">视频添加水印</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="watermarkForm">
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="watermarkBucketName" class="form-label">存储桶名称 <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" id="watermarkBucketName" placeholder="请输入OSS存储桶名称" required>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="watermarkObjectKey" class="form-label">文件对象键 <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" id="watermarkObjectKey" placeholder="请输入OSS对象键" required>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="watermarkOutputDir" class="form-label">输出目录 <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" id="watermarkOutputDir" value="output/" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="watermarkVfArgs" class="form-label">文字/静态图片水印参数</label>
+                        <input type="text" class="form-control" id="watermarkVfArgs" 
+                            placeholder="例如：drawtext=fontfile=/usr/share/fonts/truetype/wqy/wqy-zenhei.ttc:text='hello函数计算':x=100:y=50:fontsize=24:fontcolor=red">
+                        <small class="form-text text-muted">用于添加文字水印或静态图片水印，二选一</small>
+                    </div>
+                    <div class="mb-3">
+                        <label for="watermarkFilterComplexArgs" class="form-label">动态GIF水印参数</label>
+                        <input type="text" class="form-control" id="watermarkFilterComplexArgs" 
+                            placeholder="例如：overlay=0:0:1">
+                        <small class="form-text text-muted">用于添加动态GIF水印，优先级高于文字/静态水印</small>
+                    </div>
+                    <div class="mb-3">
+                        <button type="button" class="btn btn-primary w-100" id="watermarkButton">添加水印</button>
+                    </div>
+                </form>
+                <div class="mt-4">
+                    <h6>处理结果：</h6>
+                    <div class="border p-3 bg-light">
+                        <pre id="watermarkResult" style="white-space: pre-wrap;">结果将显示在这里...</pre>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 视频转GIF模态框 -->
+<div class="modal fade" id="gifModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">视频转GIF</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="gifForm">
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="gifBucketName" class="form-label">存储桶名称 <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" id="gifBucketName" placeholder="请输入OSS存储桶名称" required>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="gifObjectKey" class="form-label">文件对象键 <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" id="gifObjectKey" placeholder="请输入OSS对象键" required>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="gifOutputDir" class="form-label">输出目录 <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" id="gifOutputDir" value="output/" required>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-4 mb-3">
+                            <label for="gifStart" class="form-label">开始时间（秒）</label>
+                            <input type="number" class="form-control" id="gifStart" value="0" min="0">
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label for="gifDuration" class="form-label">持续时间（秒）</label>
+                            <input type="number" class="form-control" id="gifDuration" value="5" min="1">
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label for="gifVframes" class="form-label">帧数</label>
+                            <input type="number" class="form-control" id="gifVframes" value="20" min="1">
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <button type="button" class="btn btn-primary w-100" id="gifButton">转换为GIF</button>
+                    </div>
+                </form>
+                <div class="mt-4">
+                    <h6>处理结果：</h6>
+                    <div class="border p-3 bg-light">
+                        <pre id="gifResult" style="white-space: pre-wrap;">结果将显示在这里...</pre>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 音频转换模态框 -->
+<div class="modal fade" id="audioModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">音频格式转换</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="audioForm">
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="audioBucketName" class="form-label">存储桶名称 <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" id="audioBucketName" placeholder="请输入OSS存储桶名称" required>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="audioObjectKey" class="form-label">文件对象键 <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" id="audioObjectKey" placeholder="请输入OSS对象键" required>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="audioOutputDir" class="form-label">输出目录 <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" id="audioOutputDir" value="output/" required>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="audioDstType" class="form-label">目标格式 <span class="text-danger">*</span></label>
+                            <select class="form-select" id="audioDstType" required>
+                                <option value=".wav">WAV</option>
+                                <option value=".mp3">MP3</option>
+                                <option value=".flac">FLAC</option>
+                                <option value=".aac">AAC</option>
+                                <option value=".ogg">OGG</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="audioAc" class="form-label">声道数</label>
+                            <select class="form-select" id="audioAc">
+                                <option value="">默认</option>
+                                <option value="1">单声道 (1)</option>
+                                <option value="2">立体声 (2)</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="audioAr" class="form-label">采样率 (Hz)</label>
+                            <select class="form-select" id="audioAr">
+                                <option value="">默认</option>
+                                <option value="8000">8000 Hz</option>
+                                <option value="11025">11025 Hz</option>
+                                <option value="16000">16000 Hz</option>
+                                <option value="22050">22050 Hz</option>
+                                <option value="44100">44100 Hz (CD质量)</option>
+                                <option value="48000">48000 Hz (DVD质量)</option>
+                                <option value="96000">96000 Hz (高清质量)</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <button type="button" class="btn btn-primary w-100" id="audioButton">转换音频</button>
+                    </div>
+                </form>
+                <div class="mt-4">
+                    <h6>处理结果：</h6>
+                    <div class="border p-3 bg-light">
+                        <pre id="audioResult" style="white-space: pre-wrap;">结果将显示在这里...</pre>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
